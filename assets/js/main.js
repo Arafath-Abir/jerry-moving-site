@@ -246,8 +246,11 @@
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending…";
       if (errBox) errBox.hidden = true;
+      const ctrl = "AbortController" in window ? new AbortController() : null;
+      const timer = ctrl && setTimeout(() => ctrl.abort(), 20000);
       try {
         const res = await fetch(FORM_ENDPOINT, {
+          signal: ctrl?.signal,
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify(payload),
@@ -255,6 +258,7 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok || String(data.success) === "false") throw new Error(data.message || "Request failed");
       } catch (err) {
+        clearTimeout(timer);
         sending = false;
         submitBtn.disabled = false;
         submitBtn.innerHTML = label;
