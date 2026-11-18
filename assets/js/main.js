@@ -5,6 +5,10 @@
   const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* Where quote requests are delivered (FormSubmit.co). To change the inbox,
+     replace the address below — or, after activation, the random alias FormSubmit emails you. */
+  const FORM_ENDPOINT = "https://formsubmit.co/ajax/raselali.it@gmail.com";
+
   /* Announcement bar */
   const ann = $(".announce");
   if (ann) {
@@ -210,9 +214,54 @@
     $$("[data-prev-step]", form).forEach((b) => b.addEventListener("click", () => show(cur - 1)));
     $$("input, select, textarea", form).forEach((f) => f.addEventListener("input", () => f.closest(".field")?.classList.remove("has-error")));
 
-    form.addEventListener("submit", (e) => {
+    const LABELS = { residential: "Home / Apartment", commercial: "Office / Business", labor: "Load / Unload Help", storage: "Storage Move", junk: "Junk Removal", specialty: "Heavy / Specialty" };
+    const submitBtn = form.querySelector("button[type=submit]");
+    const errBox = $(".form-error", form);
+    let sending = false;
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!validate(cur)) return;
+      if (sending || !validate(cur)) return;
+      const fd = new FormData(form);
+      if (fd.get("_honey")) return; // bot trap
+      const v = (k) => (fd.get(k) || "").toString().trim() || "—";
+      const payload = {
+        "Name": v("name"),
+        "Phone": v("phone"),
+        "Email": v("email"),
+        "Move type": LABELS[fd.get("moveType")] || v("moveType"),
+        "From ZIP": v("fromZip"),
+        "To ZIP": v("toZip"),
+        "Move date": v("date"),
+        "Size": v("size"),
+        "Notes": v("notes"),
+        _subject: `New moving quote request: ${v("name")} (${LABELS[fd.get("moveType")] || "move"})`,
+        _template: "table",
+        _captcha: "false",
+      };
+      if (fd.get("email")) payload._replyto = fd.get("email");
+
+      sending = true;
+      const label = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending…";
+      if (errBox) errBox.hidden = true;
+      try {
+        const res = await fetch(FORM_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || String(data.success) === "false") throw new Error(data.message || "Request failed");
+      } catch (err) {
+        sending = false;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = label;
+        if (errBox) errBox.hidden = false;
+        return;
+      }
+
       const name = (form.elements.name?.value || "").split(" ")[0];
       $("[data-success-name]") && ($("[data-success-name]").textContent = name ? ", " + name : "");
       steps.forEach((s) => s.classList.remove("is-active"));
