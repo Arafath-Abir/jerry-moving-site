@@ -5,9 +5,9 @@
   const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* Where quote requests are delivered (FormSubmit.co). To change the inbox,
-     replace the address below — or, after activation, the random alias FormSubmit emails you. */
-  const FORM_ENDPOINT = "https://formsubmit.co/ajax/raselali.it@gmail.com";
+  /* Where quote requests are delivered (e.g. "https://formsubmit.co/ajax/<inbox or alias>").
+     Leave empty for demo mode: the form shows the thank-you screen without sending anything. */
+  const FORM_ENDPOINT = "";
 
   /* Announcement bar */
   const ann = $(".announce");
@@ -246,6 +246,7 @@
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending…";
       if (errBox) errBox.hidden = true;
+      if (!FORM_ENDPOINT) { finish(); return; }
       const ctrl = "AbortController" in window ? new AbortController() : null;
       const timer = ctrl && setTimeout(() => ctrl.abort(), 20000);
       try {
@@ -265,16 +266,19 @@
         if (errBox) errBox.hidden = false;
         return;
       }
+      clearTimeout(timer);
+      finish();
+    });
 
+    function finish() {
       const name = (form.elements.name?.value || "").split(" ")[0];
       $("[data-success-name]") && ($("[data-success-name]").textContent = name ? ", " + name : "");
       steps.forEach((s) => s.classList.remove("is-active"));
       $(".progress")?.setAttribute("hidden", "");
-      const ok = $(".success", form.parentElement);
-      ok?.classList.add("is-active");
+      $(".success", form.parentElement)?.classList.add("is-active");
       const y = form.parentElement.getBoundingClientRect().top + window.scrollY - 100;
       window.scrollTo({ top: y, behavior: reduce ? "auto" : "smooth" });
-    });
+    }
     show(0, false);
   }
 
